@@ -526,6 +526,8 @@ class ApprovalHistorySerializer(serializers.ModelSerializer):
     expiry_date_str = serializers.SerializerMethodField()
     reason = serializers.SerializerMethodField()
     application_detail_url = serializers.SerializerMethodField()
+    version_date_str = serializers.DateTimeField(source="version_date", format="%d/%m/%Y %H:%M:%S")
+    revision_comment = serializers.CharField()
 
     class Meta:
         model = Approval
@@ -544,6 +546,8 @@ class ApprovalHistorySerializer(serializers.ModelSerializer):
             "expiry_date_str",
             "reason",
             "application_detail_url",
+            "version_date_str",
+            "revision_comment",
         )
 
     def get_revision_id(self, obj):

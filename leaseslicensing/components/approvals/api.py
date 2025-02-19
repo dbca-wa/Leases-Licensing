@@ -541,15 +541,19 @@ class ApprovalViewSet(UserActionLoggingViewset, KeyValueListMixin):
         ).order_by("-revision__date_created")
 
         approvals = []  # List of history approvals to return
-        lodgement_sequences = (
-            []
-        )  # List to make sure there is only one approval (the most recent one) per lodgement sequence
+        # List to make sure there is only one approval (the most recent one) per lodgement number and lodgement sequence
+        # Can have a new approval of a different lodgement number show up in the version history after renewing and approval
+        lodgement_sequences = {}
         for version in versions:
             version_set = version.revision.version_set.all()
 
             approval = None
             documents = []
+            revision_comment = ""
             for vs in version_set:
+                revision_comment = vs.revision.comment
+                if revision_comment.startswith("New Approval document"):
+                    continue
                 try:
                     obj_class = vs._object_version.object.__class__
                 except RevertError:
@@ -560,11 +564,15 @@ class ApprovalViewSet(UserActionLoggingViewset, KeyValueListMixin):
                 elif obj_class == ApprovalDocument:
                     documents.append(vs._object_version.object)
 
-            if not approval or approval.lodgement_sequence in lodgement_sequences:
+            if not approval:
+                continue
+            if not approval.id in lodgement_sequences:
+                lodgement_sequences[approval.id] = []
+            if approval.lodgement_sequence in lodgement_sequences[approval.id]:
                 # Don't add to the history when there is no approval
                 # or when the lodgement sequence is already in the list
                 continue
-            lodgement_sequences.append(approval.lodgement_sequence)
+            lodgement_sequences[approval.id].append(approval.lodgement_sequence)
 
             for doc in documents:
                 if doc.id == approval.licence_document_id:
@@ -573,6 +581,8 @@ class ApprovalViewSet(UserActionLoggingViewset, KeyValueListMixin):
                     approval.cover_letter_document = doc
 
             approval.revision_id = version.revision_id
+            approval.version_date = version.revision.date_created
+            approval.revision_comment = revision_comment
 
             version_date = version.revision.date_created.strftime(
                 "%d/%m/%Y %I:%M:%S %p"
@@ -581,11 +591,20 @@ class ApprovalViewSet(UserActionLoggingViewset, KeyValueListMixin):
                 f"Adding approval {approval}-{approval.lodgement_sequence} from {version_date} to history table"
             )
             approvals.append(approval)
-        logger.info(
-            f"Returning Approval history: {', '.join([f'{approval}-{ls}' for ls in lodgement_sequences])}"
+
+        # Comma separated list of approvals for logging
+        approvals_str = ", ".join(
+            [
+                f"Approval:{ln}-{ls}"
+                for ln in lodgement_sequences
+                for ls in lodgement_sequences[ln]
+            ]
         )
-        # Sort by lodgement sequence (don't trust the revision date)
-        approvals = sorted(approvals, key=lambda x: x.lodgement_sequence, reverse=True)
+        logger.info(f"Returning Approval history: {approvals_str}")
+        # Sort by id first, then by lodgement sequence (don't trust the revision date)
+        approvals = sorted(
+            approvals, key=lambda x: (x.id, x.lodgement_sequence), reverse=True
+        )
         serializer = ApprovalHistorySerializer(approvals, many=True)
         return Response(serializer.data)
 

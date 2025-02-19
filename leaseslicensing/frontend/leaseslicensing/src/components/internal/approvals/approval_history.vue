@@ -82,7 +82,10 @@ export default {
                 'Type',
                 'Holder',
                 'Proposal',
-                'Reason',
+                'Status',
+                // 'Version Comment',
+                'Issue Date',
+                // 'Reason',
                 'Expiry Date',
                 'Document',
                 'Letter',
@@ -157,6 +160,17 @@ export default {
                 },
             };
         },
+        column_version_date: function () {
+            return {
+                data: 'id',
+                orderable: true,
+                searchable: true,
+                visible: true,
+                render: function (row, type, full) {
+                    return full.version_date_str;
+                },
+            };
+        },
         column_expiry_date: function () {
             return {
                 data: 'id',
@@ -176,6 +190,17 @@ export default {
                 visible: true,
                 render: function (row, type, full) {
                     return full.reason;
+                },
+            };
+        },
+        column_revision_comment: function () {
+            return {
+                data: 'id',
+                orderable: true,
+                searchable: true,
+                visible: true,
+                render: function (row, type, full) {
+                    return full.revision_comment;
                 },
             };
         },
@@ -217,8 +242,10 @@ export default {
                 vm.column_type,
                 vm.column_holder,
                 vm.column_application,
-                // vm.column_approval_status,
-                vm.column_reason,
+                vm.column_approval_status,
+                // vm.column_revision_comment,
+                vm.column_version_date,
+                // vm.column_reason,
                 vm.column_expiry_date,
                 vm.column_license_document,
                 vm.column_cover_letter,
